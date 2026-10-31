@@ -210,17 +210,31 @@ function start(stages,title,id){
   if(AC&&!ctx){try{ctx=new AC()}catch(e){}}
   if(ctx&&ctx.state==="suspended")ctx.resume();
   if(id){uses[id]=(uses[id]||0)+1;save("tsb_uses",uses)}
-  S={stages:stages,si:0,count:0,done:false,lock:false,title:title};
+  S={stages:stages,si:0,count:0,done:false,lock:false,title:title,rid:"r"+Date.now()+Math.random().toString(36).slice(2,6)};
   $("home").style.display="none";$("counter").style.display="flex";
   try{if(navigator.wakeLock)navigator.wakeLock.request("screen").then(function(w){wake=w}).catch(function(){})}catch(e){}
   draw();
 }
+function loadRuns(){
+  var r=load("tsb_runs",null);
+  if(!Array.isArray(r)){
+    r=[];var o=load("tsb_run",null);
+    if(o&&o.stages){o.id="m"+Date.now();r=[o]}
+    try{localStorage.removeItem("tsb_run")}catch(e){}
+    save("tsb_runs",r);
+  }
+  return r;
+}
+function runOk(r){return r&&Array.isArray(r.stages)&&r.si>=0&&r.si<r.stages.length&&r.count>=0&&r.count<r.stages[r.si]}
 function persist(){
   try{
-    if(S.done||(S.count===0&&S.si===0&&!S.lock)){localStorage.removeItem("tsb_run");return}
-    var si=S.si,c=S.count;
-    if(S.lock){si++;c=0}
-    save("tsb_run",{stages:S.stages,si:si,count:c,title:S.title});
+    var runs=loadRuns().filter(function(r){return r.id!==S.rid&&runOk(r)});
+    if(!(S.done||(S.count===0&&S.si===0&&!S.lock))){
+      var si=S.si,c=S.count;
+      if(S.lock){si++;c=0}
+      runs.unshift({id:S.rid,stages:S.stages,si:si,count:c,title:S.title});
+    }
+    save("tsb_runs",runs.slice(0,3));
   }catch(e){}
 }
 function draw(){
@@ -318,14 +332,22 @@ $("calGo").onclick=function(){
 
 /* ---- Devam et ---- */
 function renderResume(){
-  var el=$("resumeCard"),r=load("tsb_run",null);
-  if(!r||!r.stages||!(r.si>=0&&r.si<r.stages.length)||!(r.count>=0&&r.count<r.stages[r.si])){el.style.display="none";return}
-  var info=(r.stages.length>1?(r.si+1)+". aşama · ":"")+r.count+"/"+r.stages[r.si];
+  var el=$("resumeCard"),runs=loadRuns().filter(runOk);
+  if(!runs.length){el.style.display="none";return}
   el.style.display="block";
-  el.innerHTML="<b>Kaldığın yerden devam et</b><div id='rsInfo' style='margin-top:6px'></div><div class='row' style='margin-top:10px'><button class='pri' id='rsGo'>Devam et</button><button id='rsDel'>Sil</button></div>";
-  $("rsInfo").textContent=(r.title||"Tesbih")+" · "+info;
-  $("rsGo").onclick=function(){start(r.stages,r.title,"");S.si=r.si;S.count=r.count;draw()};
-  $("rsDel").onclick=function(){try{localStorage.removeItem("tsb_run")}catch(e){}renderResume()};
+  el.innerHTML="<b>Yarım kalan tesbihler</b><div id='rsList'></div>";
+  var box=$("rsList");
+  runs.forEach(function(r){
+    var row=document.createElement("div");row.style.marginTop="10px";
+    var info=document.createElement("div");
+    info.textContent=(r.title||"Tesbih")+" · "+(r.stages.length>1?(r.si+1)+". aşama · ":"")+r.count+"/"+r.stages[r.si];
+    var br=document.createElement("div");br.className="row";br.style.marginTop="6px";
+    var go=document.createElement("button");go.className="pri";go.textContent="Devam et";
+    go.onclick=function(){start(r.stages,r.title,"");S.rid=r.id;S.si=r.si;S.count=r.count;draw()};
+    var del=document.createElement("button");del.textContent="Sıfırla";
+    del.onclick=function(){save("tsb_runs",loadRuns().filter(function(x){return x.id!==r.id}));renderResume()};
+    br.appendChild(go);br.appendChild(del);row.appendChild(info);row.appendChild(br);box.appendChild(row);
+  });
 }
 
 /* ---- Ayarlar ---- */
