@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tesbih</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1f6f55">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tesbih">
+<style>
+:root{--bg:#f6f3ec;--card:#fff;--ink:#1f2a25;--mut:#6b7570;--acc:#1f6f55;--accink:#fff;--line:#ddd7c8;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121816;--card:#1b2420;--ink:#e8eee9;--mut:#93a39a;--acc:#4fb58f;--accink:#0b1511;--line:#2b3832}}
+:root[data-theme="dark"]{--bg:#121816;--card:#1b2420;--ink:#e8eee9;--mut:#93a39a;--acc:#4fb58f;--accink:#0b1511;--line:#2b3832}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-tap-highlight-color:transparent}
+main{max-width:480px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:4px 0 14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.mut{color:var(--mut);font-size:14px}
+button,input{font:inherit;color:inherit}
+button{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 14px;cursor:pointer}
+button.pri{background:var(--acc);color:var(--accink);border-color:var(--acc);font-weight:600}
+input[type=text],input[type=number]{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.row{display:flex;gap:8px;align-items:center}
+.row>*{flex:1}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{flex:0 0 auto}
+.days{display:flex;gap:4px;margin-top:10px}
+.days div{flex:1;text-align:center;border:1px solid var(--line);border-radius:8px;padding:6px 0;font-size:14px}
+.days .on{background:var(--acc);color:var(--accink);border-color:var(--acc);font-weight:700}
+#counter{display:none;min-height:calc(100vh - 32px);flex-direction:column}
+#tap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px solid var(--line);border-radius:24px;background:var(--card);user-select:none;-webkit-user-select:none;touch-action:manipulation;min-height:60vh;margin:10px 0}
+#num{font-size:30vw;max-font-size:200px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+@media (min-width:480px){#num{font-size:140px}}
+#of{font-size:22px;color:var(--mut);margin-top:6px}
+#stage{color:var(--mut);margin-top:10px}
+#bar{height:8px;background:var(--line);border-radius:6px;overflow:hidden}
+#bar i{display:block;height:100%;width:0;background:var(--acc);transition:width .15s}
+.flash{animation:fl .5s}
+@keyframes fl{0%{background:var(--acc)}100%{background:var(--card)}}
+.tg{display:flex;gap:14px;font-size:14px}
+.tg label{display:flex;gap:6px;align-items:center}
+.vr{display:flex;gap:8px;align-items:center;margin:8px 0}.vr span{flex:1}
+select{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px}
+</style>
+</head>
+<body>
+<main id="home">
+  <h1>📿 Tesbih</h1>
+
+  <div class="card" id="planCard"></div>
+
+  <div class="card">
+    <b>Düz çekim</b>
+    <div class="row" style="margin-top:8px"><input type="number" id="limit" inputmode="numeric" min="1" max="9999" placeholder="Üst sınır (ör. 100)"><button class="pri" id="goLimit" style="flex:0 0 auto">Başla</button></div>
+  </div>
+
+  <div class="card">
+    <b>Şablonlar</b>
+    <div class="mut" style="margin:2px 0 8px">En sık kullandıkların öne gelir.</div>
+    <div class="chips" id="tpls"></div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+    <b>Kendi şablonun</b>
+    <div style="margin-top:8px"><input type="text" id="tname" placeholder="Ad (ör. Sabah)"></div>
+    <div class="row" style="margin-top:8px"><input type="text" id="tstages" placeholder="Aşamalar: 33+33+33 ya da 41"><button id="addTpl" style="flex:0 0 auto">Kaydet</button></div>
+    <div class="mut" id="tmsg" style="margin-top:6px"></div>
+  </div>
+
+  <div class="card">
+    <b>Ayarlar</b>
+    <div class="tg" style="margin:8px 0"><label><input type="checkbox" id="vib" checked> Titreşim</label><label><input type="checkbox" id="snd" checked> Bip sesi</label></div>
+    <div class="vr"><span>Her dokunuş</span><select id="vTick"><option value="0">Kapalı</option><option value="45">Hafif</option><option value="70">Orta</option><option value="100">Güçlü</option></select><button id="tTick">Dene</button></div>
+    <div class="vr"><span>Bir kala</span><select id="vWarn"><option value="0">Kapalı</option><option value="150">Hafif</option><option value="300">Orta</option><option value="500">Güçlü</option></select><button id="tWarn">Dene</button></div>
+    <div class="vr"><span>Bitiş (2 titreşim)</span><select id="vEnd"><option value="0">Kapalı</option><option value="150">Hafif</option><option value="300">Orta</option><option value="500">Güçlü</option></select><button id="tEnd">Dene</button></div>
+    <div class="row"><span class="mut" style="flex:2">Hicri plan başlangıcını kaydır (gün)</span><button id="offM" style="flex:0 0 44px">−</button><span id="offV" style="text-align:center;flex:0 0 30px">0</span><button id="offP" style="flex:0 0 44px">+</button></div>
+    <div class="mut" style="margin-top:6px">Hesaplanan Hicri takvim Diyanet takvimiyle bir gün farklı çıkarsa buradan düzelt.</div>
+  </div>
+</main>
+
+<main id="counter">
+  <div class="row"><button id="back" style="flex:0 0 auto">← Çık</button><div id="title" style="text-align:center;font-weight:600"></div><span style="flex:0 0 60px"></span></div>
+  <div id="tap"><div id="num">0</div><div id="of"></div><div id="stage"></div></div>
+  <div id="bar"><i></i></div>
+  <div class="row" style="margin-top:10px"><button id="undo">−1</button><button id="reset">Sıfırla</button></div>
+</main>
+
+<script>
+(function(){
+var PLAN=[70,60,50,40,30,20,10];
+var DEFAULTS=[{id:"d33",name:"33+33+33",stages:[33,33,33]},{id:"d41",name:"41",stages:[41]},{id:"d7",name:"7",stages:[7]},{id:"d100",name:"100",stages:[100]}];
+var $=function(id){return document.getElementById(id)};
+function load(k,def){try{var v=localStorage.getItem(k);return v?JSON.parse(v):def}catch(e){return def}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+var custom=load("tsb_custom",[]),uses=load("tsb_uses",{}),set=load("tsb_set",{vib:true,snd:true,off:0});
+var S={stages:[],si:0,count:0,done:false,lock:false,title:""};
+var ctx=null,wake=null;
+
+/* ---- Hicri plan ---- */
+var hf;try{hf=new Intl.DateTimeFormat("en-u-ca-islamic-umalqura-nu-latn",{day:"numeric"})}catch(e){hf=null}
+function noon(d){return new Date(d.getFullYear(),d.getMonth(),d.getDate(),12)}
+function add(d,n){return new Date(d.getFullYear(),d.getMonth(),d.getDate()+n,12)}
+function hDay(d){return Number(hf.formatToParts(d).filter(function(p){return p.type==="day"})[0].value)}
+function firstSun(d){return add(d,(7-d.getDay())%7)}
+function fmtD(d){return d.toLocaleDateString("tr-TR",{day:"numeric",month:"long",weekday:"long"})}
+function planInfo(){
+  if(!hf)return null;
+  var t=noon(new Date()),starts=[];
+  for(var i=-50;i<=50;i++){var d=add(t,i);if(hDay(d)===1)starts.push(add(firstSun(d),set.off||0))}
+  var cur=null,next=null;
+  starts.forEach(function(s){if(s<=t)cur=s;else if(!next)next=s});
+  var idx=cur?Math.round((t-cur)/864e5):99;
+  return {idx:idx,cur:cur,next:next};
+}
+function renderPlan(){
+  var el=$("planCard"),p=planInfo();
+  if(!p){el.innerHTML="<b>Hicri plan</b><div class='mut'>Bu tarayıcı Hicri takvimi desteklemiyor.</div>";return}
+  var h="<b>Hicri ay planı</b>";
+  if(p.idx>=0&&p.idx<7){
+    h+="<div style='margin-top:6px;font-size:18px'>Bugün: <b>"+PLAN[p.idx]+" adet</b> · "+(p.idx+1)+". gün</div>";
+    h+="<div class='days'>"+PLAN.map(function(n,i){return "<div class='"+(i===p.idx?"on":"")+"'>"+n+"</div>"}).join("")+"</div>";
+    h+="<button class='pri' id='goPlan' style='width:100%;margin-top:10px'>"+PLAN[p.idx]+" ile başla</button>";
+  }else{
+    h+="<div class='mut' style='margin-top:6px'>Bugün plan günü değil."+(p.next?" Sonraki başlangıç: <b>"+fmtD(p.next)+"</b>.":"")+"</div>";
+    h+="<div class='days'>"+PLAN.map(function(n){return "<div>"+n+"</div>"}).join("")+"</div>";
+  }
+  el.innerHTML=h;
+  var g=$("goPlan");if(g)g.onclick=function(){start([PLAN[p.idx]],"Hicri plan · "+(p.idx+1)+". gün","plan")};
+}
+
+/* ---- Şablonlar ---- */
+function renderTpls(){
+  var all=DEFAULTS.concat(custom.map(function(c){return {id:c.id,name:c.name,stages:c.stages,custom:true}}));
+  all.sort(function(a,b){return (uses[b.id]||0)-(uses[a.id]||0)});
+  var box=$("tpls");box.innerHTML="";
+  all.forEach(function(t){
+    var b=document.createElement("button");
+    b.textContent=(t.custom?t.name+" ("+t.stages.join("+")+")":t.name);
+    b.onclick=function(){start(t.stages,t.name,t.id)};
+    if(t.custom){
+      var x=document.createElement("button");x.textContent="✕";x.style.padding="10px";
+      x.onclick=function(){custom=custom.filter(function(c){return c.id!==t.id});save("tsb_custom",custom);renderTpls()};
+      var w=document.createElement("span");w.className="row";w.style.gap="2px";w.style.flex="0 0 auto";w.appendChild(b);w.appendChild(x);box.appendChild(w);
+    }else box.appendChild(b);
+  });
+}
+function parse(s){
+  var a=s.split("+").map(function(x){return parseInt(x.trim(),10)});
+  return a.length&&a.every(function(n){return n>0&&n<=9999})?a:null;
+}
+$("addTpl").onclick=function(){
+  var st=parse($("tstages").value),nm=$("tname").value.trim();
+  if(!st){$("tmsg").textContent="Aşamaları 33+33+33 ya da 41 gibi yaz.";return}
+  custom.push({id:"c"+Date.now(),name:nm||st.join("+"),stages:st});save("tsb_custom",custom);
+  $("tname").value="";$("tstages").value="";$("tmsg").textContent="Kaydedildi.";renderTpls();
+};
+$("goLimit").onclick=function(){var n=parseInt($("limit").value,10);if(n>0&&n<=9999)start([n],"Düz çekim","")};
+
+/* ---- Ses / titreşim ---- */
+function beep(n,f){
+  if(!set.snd||!ctx)return;
+  for(var k=0;k<n;k++){
+    var o=ctx.createOscillator(),g=ctx.createGain(),t=ctx.currentTime+k*0.2;
+    o.frequency.value=f;o.connect(g);g.connect(ctx.destination);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.4,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+0.14);
+    o.start(t);o.stop(t+0.16);
+  }
+}
+function endPat(){var d=set.end;return d?[d,150,d]:0}
+function vib(p){if(set.vib&&p&&navigator.vibrate){try{navigator.vibrate(p)}catch(e){}}}
+function warn(){vib(set.warn);beep(1,660)}
+function endSig(){vib(endPat());beep(2,880)}
+
+/* ---- Sayaç ---- */
+function start(stages,title,id){
+  var AC=window.AudioContext||window.webkitAudioContext;
+  if(AC&&!ctx){try{ctx=new AC()}catch(e){}}
+  if(ctx&&ctx.state==="suspended")ctx.resume();
+  if(id){uses[id]=(uses[id]||0)+1;save("tsb_uses",uses)}
+  S={stages:stages,si:0,count:0,done:false,lock:false,title:title};
+  $("home").style.display="none";$("counter").style.display="flex";
+  try{if(navigator.wakeLock)navigator.wakeLock.request("screen").then(function(w){wake=w}).catch(function(){})}catch(e){}
+  draw();
+}
+function draw(){
+  var tg=S.stages[S.si];
+  $("title").textContent=S.title;
+  $("num").textContent=S.done?"✓":S.count;
+  $("of").textContent=S.done?"Tamamlandı":"/ "+tg;
+  $("stage").textContent=S.stages.length>1&&!S.done?"Aşama "+(S.si+1)+" / "+S.stages.length:"";
+  var total=S.stages.reduce(function(a,b){return a+b},0),before=S.stages.slice(0,S.si).reduce(function(a,b){return a+b},0);
+  $("bar").firstChild.style.width=(S.done?100:(before+S.count)/total*100)+"%";
+}
+$("tap").onclick=function(){
+  if(S.done||S.lock)return;
+  var tg=S.stages[S.si];
+  S.count++;
+  if(S.count>=tg){
+    endSig();
+    var el=$("tap");el.classList.remove("flash");void el.offsetWidth;el.classList.add("flash");
+    if(S.si<S.stages.length-1){S.lock=true;draw();setTimeout(function(){S.si++;S.count=0;S.lock=false;draw()},700)}
+    else{S.done=true;draw()}
+    return;
+  }
+  if(tg>1&&S.count===tg-1)warn();else vib(set.tick);
+  draw();
+};
+$("undo").onclick=function(){if(S.done){S.done=false;S.count=S.stages[S.si]-1}else if(S.count>0)S.count--;draw()};
+$("reset").onclick=function(){S.si=0;S.count=0;S.done=false;S.lock=false;draw()};
+$("back").onclick=function(){
+  $("counter").style.display="none";$("home").style.display="block";
+  if(wake){try{wake.release()}catch(e){}wake=null}
+  renderTpls();
+};
+
+/* ---- Ayarlar ---- */
+$("vib").checked=set.vib;$("snd").checked=set.snd;$("offV").textContent=set.off||0;
+if(set.tick==null)set.tick=70;if(set.tick==25)set.tick=45;if(set.warn==null)set.warn=300;if(set.end==null)set.end=300;
+[["vTick","tick"],["vWarn","warn"],["vEnd","end"]].forEach(function(p){var s=$(p[0]);s.value=String(set[p[1]]);s.onchange=function(){set[p[1]]=Number(s.value);save("tsb_set",set)}});
+$("tTick").onclick=function(){vib(set.tick)};$("tWarn").onclick=function(){vib(set.warn)};$("tEnd").onclick=function(){vib(endPat())};
+$("vib").onchange=function(){set.vib=this.checked;save("tsb_set",set);if(this.checked)vib(80)};
+$("snd").onchange=function(){set.snd=this.checked;save("tsb_set",set)};
+function off(n){set.off=(set.off||0)+n;save("tsb_set",set);$("offV").textContent=set.off;renderPlan()}
+$("offM").onclick=function(){off(-1)};$("offP").onclick=function(){off(1)};
+document.addEventListener("visibilitychange",function(){
+  if(!document.hidden&&$("counter").style.display==="flex"&&navigator.wakeLock){navigator.wakeLock.request("screen").then(function(w){wake=w}).catch(function(){})}
+});
+
+renderPlan();renderTpls();
+})();
+</script>
+<script>
+if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}
+</script>
+</body>
+</html>
