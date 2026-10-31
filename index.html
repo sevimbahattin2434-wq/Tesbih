@@ -47,6 +47,7 @@ input[type=text],input[type=number]{width:100%;padding:10px;border:1px solid var
 .tg label{display:flex;gap:6px;align-items:center}
 .vr{display:flex;gap:8px;align-items:center;margin:8px 0}.vr span{flex:1}
 select{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px}
+input[type=time]{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px}
 </style>
 </head>
 <body>
@@ -71,6 +72,16 @@ select{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--li
     <div style="margin-top:8px"><input type="text" id="tname" placeholder="Ad (ör. Sabah)"></div>
     <div class="row" style="margin-top:8px"><input type="text" id="tstages" placeholder="Aşamalar: 33+33+33 ya da 41"><button id="addTpl" style="flex:0 0 auto">Kaydet</button></div>
     <div class="mut" id="tmsg" style="margin-top:6px"></div>
+  </div>
+
+  <div class="card" id="calCard">
+    <b>Takvime ekle</b>
+    <div class="mut" style="margin:2px 0 8px">Hicri plan günlerini telefon takvimine alarmlı etkinlik olarak aktarır.</div>
+    <div class="vr"><span>Alarm saati</span><input type="time" id="calT" value="08:00"></div>
+    <div class="vr"><span>Kaç ay</span><select id="calM"><option value="6">6 ay</option><option value="12">12 ay</option><option value="24">24 ay</option></select></div>
+    <div class="mut" id="calPrev"></div>
+    <button class="pri" id="calGo" style="width:100%;margin-top:10px">Takvim dosyasını indir</button>
+    <div class="mut" id="calMsg" style="margin-top:6px"></div>
   </div>
 
   <div class="card">
@@ -228,6 +239,67 @@ $("back").onclick=function(){
   renderTpls();renderResume();
 };
 
+/* ---- Takvim ---- */
+var AY=["Muharrem","Safer","Rebiülevvel","Rebiülahir","Cemaziyelevvel","Cemaziyelahir","Recep","Şaban","Ramazan","Şevval","Zilkade","Zilhicce"];
+var hf2;try{hf2=new Intl.DateTimeFormat("en-u-ca-islamic-umalqura-nu-latn",{day:"numeric",month:"numeric",year:"numeric"})}catch(e){hf2=null}
+function hParts(d){var o={};hf2.formatToParts(d).forEach(function(p){if(p.type!=="literal")o[p.type]=Number(p.value)});o.year=o.year||o.relatedYear;return o}
+function p2(n){return (n<10?"0":"")+n}
+function icsDT(d){return d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+"T"+p2(d.getHours())+p2(d.getMinutes())+"00"}
+function planMonths(n){
+  var t=noon(new Date()),res=[];
+  for(var i=-50;i<=n*31+60&&res.length<n;i++){
+    var d=add(t,i),h=hParts(d);
+    if(h.day!==1)continue;
+    var s=add(firstSun(d),set.off||0);
+    if(add(s,6)<t)continue;
+    res.push({s:s,y:h.year,m:h.month});
+  }
+  return res;
+}
+function calTime(){var t=(set.ct||"08:00").split(":");return [Number(t[0])||0,Number(t[1])||0]}
+function buildICS(){
+  var tm=calTime(),months=planMonths(set.cm||12),today=noon(new Date()),cnt=0;
+  var stamp=new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d+/,"");
+  var L=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Tesbih//TR","CALSCALE:GREGORIAN","X-WR-CALNAME:Tesbih"];
+  function ev(uid,day,title,desc){
+    var st=new Date(day.getFullYear(),day.getMonth(),day.getDate(),tm[0],tm[1]);
+    var en=new Date(day.getFullYear(),day.getMonth(),day.getDate(),tm[0],tm[1]+15);
+    L.push("BEGIN:VEVENT","UID:"+uid+"@tesbih","DTSTAMP:"+stamp,"DTSTART:"+icsDT(st),"DTEND:"+icsDT(en),
+      "SUMMARY:"+title,"DESCRIPTION:"+desc,"BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:"+title,"TRIGGER:PT0S","END:VALARM","END:VEVENT");
+    cnt++;
+  }
+  months.forEach(function(M){
+    PLAN.forEach(function(v,i){
+      var d=add(M.s,i);if(d<today)return;
+      ev("tesbih-"+M.y+"-"+M.m+"-"+(i+1),d,"Tesbih: "+v+" adet · "+(i+1)+". gün",AY[M.m-1]+" "+M.y+" ayı planı · "+(i+1)+". gün");
+    });
+  });
+  if(months.length){
+    var last=months[months.length-1];
+    ev("tesbih-yenile-"+last.y+"-"+last.m,add(last.s,7),"Tesbih takvimini yenile","Uygulamayı açıp Takvime ekle düğmesine yeniden bas.");
+  }
+  L.push("END:VCALENDAR");
+  return {text:L.join("\r\n")+"\r\n",count:cnt};
+}
+function renderCal(){
+  var el=$("calPrev");
+  if(!hf2){el.textContent="Bu tarayıcı Hicri takvimi desteklemiyor.";return}
+  var ms=planMonths(3);
+  el.innerHTML="Plan başlangıçları (Diyanet takvimiyle karşılaştır):<br>"+ms.map(function(M){return "• "+AY[M.m-1]+": "+fmtD(M.s)}).join("<br>");
+}
+$("calT").value=set.ct||"08:00";$("calM").value=String(set.cm||12);
+$("calT").onchange=function(){set.ct=this.value||"08:00";save("tsb_set",set)};
+$("calM").onchange=function(){set.cm=Number(this.value);save("tsb_set",set)};
+$("calGo").onclick=function(){
+  if(!hf2){$("calMsg").textContent="Bu tarayıcı Hicri takvimi desteklemiyor.";return}
+  var r=buildICS();
+  var blob=new Blob([r.text],{type:"text/calendar;charset=utf-8"}),url=URL.createObjectURL(blob);
+  var a=document.createElement("a");a.href=url;a.download="tesbih-takvim.ics";document.body.appendChild(a);a.click();a.remove();
+  setTimeout(function(){URL.revokeObjectURL(url)},10000);
+  $("calMsg").textContent=r.count+" etkinlik hazırlandı. İndirilen dosyaya dokunup takvimine ekle. Açılmazsa tarayıcıda (Chrome/Safari) dene.";
+};
+/* ---- /Takvim ---- */
+
 /* ---- Devam et ---- */
 function renderResume(){
   var el=$("resumeCard"),r=load("tsb_run",null);
@@ -247,13 +319,13 @@ if(set.tick==null)set.tick=70;if(set.tick==25)set.tick=45;if(set.warn==null)set.
 $("tTick").onclick=function(){vib(set.tick)};$("tWarn").onclick=function(){vib(set.warn)};$("tEnd").onclick=function(){vib(endPat())};
 $("vib").onchange=function(){set.vib=this.checked;save("tsb_set",set);if(this.checked)vib(80)};
 $("snd").onchange=function(){set.snd=this.checked;save("tsb_set",set)};
-function off(n){set.off=(set.off||0)+n;save("tsb_set",set);$("offV").textContent=set.off;renderPlan()}
+function off(n){set.off=(set.off||0)+n;save("tsb_set",set);$("offV").textContent=set.off;renderPlan();renderCal()}
 $("offM").onclick=function(){off(-1)};$("offP").onclick=function(){off(1)};
 document.addEventListener("visibilitychange",function(){
   if(!document.hidden&&$("counter").style.display==="flex"&&navigator.wakeLock){navigator.wakeLock.request("screen").then(function(w){wake=w}).catch(function(){})}
 });
 
-renderPlan();renderTpls();renderResume();
+renderPlan();renderTpls();renderResume();renderCal();
 })();
 </script>
 <script>
