@@ -47,6 +47,10 @@ input[type=text],input[type=number]{width:100%;padding:10px;border:1px solid var
 .tg label{display:flex;gap:6px;align-items:center}
 .vr{display:flex;gap:8px;align-items:center;margin:8px 0}.vr span{flex:1}
 select{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px}
+summary{cursor:pointer;font-weight:700;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"▾";float:right;color:var(--mut)}
+details[open]>summary::after{content:"▴"}
 input[type=time]{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px}
 </style>
 </head>
@@ -74,16 +78,6 @@ input[type=time]{font:inherit;color:inherit;background:var(--bg);border:1px soli
     <div class="mut" id="tmsg" style="margin-top:6px"></div>
   </div>
 
-  <div class="card" id="calCard">
-    <b>Takvime ekle</b>
-    <div class="mut" style="margin:2px 0 8px">Hicri plan günlerini telefon takvimine alarmlı etkinlik olarak aktarır.</div>
-    <div class="vr"><span>Alarm saati</span><input type="time" id="calT" value="08:00"></div>
-    <div class="vr"><span>Kaç ay</span><select id="calM"><option value="6">6 ay</option><option value="12">12 ay</option><option value="24">24 ay</option></select></div>
-    <div class="mut" id="calPrev"></div>
-    <button class="pri" id="calGo" style="width:100%;margin-top:10px">Takvim dosyasını indir</button>
-    <div class="mut" id="calMsg" style="margin-top:6px"></div>
-  </div>
-
   <div class="card">
     <b>Ayarlar</b>
     <div class="tg" style="margin:8px 0"><label><input type="checkbox" id="vib" checked> Titreşim</label><label><input type="checkbox" id="snd" checked> Bip sesi</label></div>
@@ -93,6 +87,15 @@ input[type=time]{font:inherit;color:inherit;background:var(--bg);border:1px soli
     <div class="row"><span class="mut" style="flex:2">Hicri plan başlangıcını kaydır (gün)</span><button id="offM" style="flex:0 0 44px">−</button><span id="offV" style="text-align:center;flex:0 0 30px">0</span><button id="offP" style="flex:0 0 44px">+</button></div>
     <div class="mut" style="margin-top:6px">Hesaplanan Hicri takvim Diyanet takvimiyle bir gün farklı çıkarsa buradan düzelt.</div>
   </div>
+  <details class="card" id="calCard">
+    <summary>Takvime ekle</summary>
+    <div class="mut" style="margin:8px 0">Hicri plan günlerini telefon takvimine alarmlı etkinlik olarak aktarır. Yılda bir ya da altı ayda bir yapman yeter.</div>
+    <div class="vr"><span>Alarm saati</span><input type="time" id="calT" value="08:00"></div>
+    <div class="vr"><span>Kaç ay</span><select id="calM"><option value="6">6 ay</option><option value="12">12 ay</option><option value="24">24 ay</option></select></div>
+    <div class="mut" id="calPrev"></div>
+    <button class="pri" id="calGo" style="width:100%;margin-top:10px">Takvim dosyasını indir</button>
+    <div class="mut" id="calMsg" style="margin-top:6px"></div>
+  </details>
 </main>
 
 <main id="counter">
