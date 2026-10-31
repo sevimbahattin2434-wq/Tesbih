@@ -53,6 +53,8 @@ select{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--li
 <main id="home">
   <h1>📿 Tesbih</h1>
 
+  <div class="card" id="resumeCard" style="display:none"></div>
+
   <div class="card" id="planCard"></div>
 
   <div class="card">
@@ -186,7 +188,16 @@ function start(stages,title,id){
   try{if(navigator.wakeLock)navigator.wakeLock.request("screen").then(function(w){wake=w}).catch(function(){})}catch(e){}
   draw();
 }
+function persist(){
+  try{
+    if(S.done||(S.count===0&&S.si===0&&!S.lock)){localStorage.removeItem("tsb_run");return}
+    var si=S.si,c=S.count;
+    if(S.lock){si++;c=0}
+    save("tsb_run",{stages:S.stages,si:si,count:c,title:S.title});
+  }catch(e){}
+}
 function draw(){
+  persist();
   var tg=S.stages[S.si];
   $("title").textContent=S.title;
   $("num").textContent=S.done?"✓":S.count;
@@ -214,8 +225,20 @@ $("reset").onclick=function(){S.si=0;S.count=0;S.done=false;S.lock=false;draw()}
 $("back").onclick=function(){
   $("counter").style.display="none";$("home").style.display="block";
   if(wake){try{wake.release()}catch(e){}wake=null}
-  renderTpls();
+  renderTpls();renderResume();
 };
+
+/* ---- Devam et ---- */
+function renderResume(){
+  var el=$("resumeCard"),r=load("tsb_run",null);
+  if(!r||!r.stages||!(r.si>=0&&r.si<r.stages.length)||!(r.count>=0&&r.count<r.stages[r.si])){el.style.display="none";return}
+  var info=(r.stages.length>1?(r.si+1)+". aşama · ":"")+r.count+"/"+r.stages[r.si];
+  el.style.display="block";
+  el.innerHTML="<b>Kaldığın yerden devam et</b><div id='rsInfo' style='margin-top:6px'></div><div class='row' style='margin-top:10px'><button class='pri' id='rsGo'>Devam et</button><button id='rsDel'>Sil</button></div>";
+  $("rsInfo").textContent=(r.title||"Tesbih")+" · "+info;
+  $("rsGo").onclick=function(){start(r.stages,r.title,"");S.si=r.si;S.count=r.count;draw()};
+  $("rsDel").onclick=function(){try{localStorage.removeItem("tsb_run")}catch(e){}renderResume()};
+}
 
 /* ---- Ayarlar ---- */
 $("vib").checked=set.vib;$("snd").checked=set.snd;$("offV").textContent=set.off||0;
@@ -230,7 +253,7 @@ document.addEventListener("visibilitychange",function(){
   if(!document.hidden&&$("counter").style.display==="flex"&&navigator.wakeLock){navigator.wakeLock.request("screen").then(function(w){wake=w}).catch(function(){})}
 });
 
-renderPlan();renderTpls();
+renderPlan();renderTpls();renderResume();
 })();
 </script>
 <script>
