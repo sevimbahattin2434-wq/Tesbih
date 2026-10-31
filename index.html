@@ -84,6 +84,7 @@ input[type=time]{font:inherit;color:inherit;background:var(--bg);border:1px soli
     <div class="vr"><span>Her dokunuş</span><select id="vTick"><option value="0">Kapalı</option><option value="45">Hafif</option><option value="70">Orta</option><option value="100">Güçlü</option></select><button id="tTick">Dene</button></div>
     <div class="vr"><span>Bir kala</span><select id="vWarn"><option value="0">Kapalı</option><option value="150">Hafif</option><option value="300">Orta</option><option value="500">Güçlü</option></select><button id="tWarn">Dene</button></div>
     <div class="vr"><span>Bitiş (2 titreşim)</span><select id="vEnd"><option value="0">Kapalı</option><option value="150">Hafif</option><option value="300">Orta</option><option value="500">Güçlü</option></select><button id="tEnd">Dene</button></div>
+    <div class="vr"><span>Dokunuş sesi</span><select id="vSnd"><option value="0">Kapalı</option><option value="0.1">Hafif</option><option value="0.25">Orta</option><option value="0.5">Güçlü</option></select><button id="tSnd">Dene</button></div>
     <div class="row"><span class="mut" style="flex:2">Hicri plan başlangıcını kaydır (gün)</span><button id="offM" style="flex:0 0 44px">−</button><span id="offV" style="text-align:center;flex:0 0 30px">0</span><button id="offP" style="flex:0 0 44px">+</button></div>
     <div class="mut" style="margin-top:6px">Hesaplanan Hicri takvim Diyanet takvimiyle bir gün farklı çıkarsa buradan düzelt.</div>
   </div>
@@ -188,6 +189,18 @@ function beep(n,f){
 }
 function endPat(){var d=set.end;return d?[d,150,d]:0}
 function vib(p){if(set.vib&&p&&navigator.vibrate){try{navigator.vibrate(p)}catch(e){}}}
+function ensureCtx(){
+  var AC=window.AudioContext||window.webkitAudioContext;
+  if(AC&&!ctx){try{ctx=new AC()}catch(e){}}
+  if(ctx&&ctx.state==="suspended")ctx.resume();
+}
+function tickSnd(){
+  if(!set.snd||!set.ts||!ctx)return;
+  var o=ctx.createOscillator(),g=ctx.createGain(),t=ctx.currentTime;
+  o.type="sine";o.frequency.value=1100;o.connect(g);g.connect(ctx.destination);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(set.ts,0.0002),t+0.004);g.gain.exponentialRampToValueAtTime(0.0001,t+0.035);
+  o.start(t);o.stop(t+0.04);
+}
 function warn(){vib(set.warn);beep(1,660)}
 function endSig(){vib(endPat());beep(2,880)}
 
@@ -231,7 +244,7 @@ $("tap").onclick=function(){
     else{S.done=true;draw()}
     return;
   }
-  if(tg>1&&S.count===tg-1)warn();else vib(set.tick);
+  if(tg>1&&S.count===tg-1)warn();else{vib(set.tick);tickSnd()}
   draw();
 };
 $("undo").onclick=function(){if(S.done){S.done=false;S.count=S.stages[S.si]-1}else if(S.count>0)S.count--;draw()};
@@ -317,9 +330,9 @@ function renderResume(){
 
 /* ---- Ayarlar ---- */
 $("vib").checked=set.vib;$("snd").checked=set.snd;$("offV").textContent=set.off||0;
-if(set.tick==null)set.tick=70;if(set.tick==25)set.tick=45;if(set.warn==null)set.warn=300;if(set.end==null)set.end=300;
-[["vTick","tick"],["vWarn","warn"],["vEnd","end"]].forEach(function(p){var s=$(p[0]);s.value=String(set[p[1]]);s.onchange=function(){set[p[1]]=Number(s.value);save("tsb_set",set)}});
-$("tTick").onclick=function(){vib(set.tick)};$("tWarn").onclick=function(){vib(set.warn)};$("tEnd").onclick=function(){vib(endPat())};
+if(set.tick==null)set.tick=70;if(set.tick==25)set.tick=45;if(set.warn==null)set.warn=300;if(set.end==null)set.end=300;if(set.ts==null)set.ts=0;
+[["vTick","tick"],["vWarn","warn"],["vEnd","end"],["vSnd","ts"]].forEach(function(p){var s=$(p[0]);s.value=String(set[p[1]]);s.onchange=function(){set[p[1]]=Number(s.value);save("tsb_set",set)}});
+$("tTick").onclick=function(){vib(set.tick)};$("tWarn").onclick=function(){vib(set.warn)};$("tEnd").onclick=function(){vib(endPat())};$("tSnd").onclick=function(){ensureCtx();tickSnd()};
 $("vib").onchange=function(){set.vib=this.checked;save("tsb_set",set);if(this.checked)vib(80)};
 $("snd").onchange=function(){set.snd=this.checked;save("tsb_set",set)};
 function off(n){set.off=(set.off||0)+n;save("tsb_set",set);$("offV").textContent=set.off;renderPlan();renderCal()}
