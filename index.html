@@ -81,6 +81,7 @@ input[type=time]{font:inherit;color:inherit;background:var(--bg);border:1px soli
   <div class="card">
     <b>Ayarlar</b>
     <div class="tg" style="margin:8px 0"><label><input type="checkbox" id="vib" checked> Titreşim</label><label><input type="checkbox" id="snd" checked> Bip sesi</label></div>
+    <div class="tg" id="vkRow" style="display:none;margin:8px 0"><label><input type="checkbox" id="vk"> Ses tuşlarıyla say (ekran kapalıyken de)</label></div>
     <div class="vr"><span>Her dokunuş</span><select id="vTick"><option value="0">Kapalı</option><option value="45">Hafif</option><option value="70">Orta</option><option value="100">Güçlü</option></select><button id="tTick">Dene</button></div>
     <div class="vr"><span>Bir kala</span><select id="vWarn"><option value="0">Kapalı</option><option value="150">Hafif</option><option value="300">Orta</option><option value="500">Güçlü</option></select><button id="tWarn">Dene</button></div>
     <div class="vr"><span>Bitiş (2 titreşim)</span><select id="vEnd"><option value="0">Kapalı</option><option value="150">Hafif</option><option value="300">Orta</option><option value="500">Güçlü</option></select><button id="tEnd">Dene</button></div>
@@ -188,7 +189,7 @@ function beep(n,f){
   }
 }
 function endPat(){var d=set.end;return d?[d,150,d]:0}
-function vib(p){if(set.vib&&p&&navigator.vibrate){try{navigator.vibrate(p)}catch(e){}}}
+function vib(p){if(!set.vib||!p)return;if(window.Android&&Android.vibrate){try{Android.vibrate(JSON.stringify(p))}catch(e){}}else if(navigator.vibrate){try{navigator.vibrate(p)}catch(e){}}}
 function ensureCtx(){
   var AC=window.AudioContext||window.webkitAudioContext;
   if(AC&&!ctx){try{ctx=new AC()}catch(e){}}
@@ -210,11 +211,35 @@ function start(stages,title,id){
   if(AC&&!ctx){try{ctx=new AC()}catch(e){}}
   if(ctx&&ctx.state==="suspended")ctx.resume();
   if(id){uses[id]=(uses[id]||0)+1;save("tsb_uses",uses)}
-  S={stages:stages,si:0,count:0,done:false,lock:false,title:title,rid:"r"+Date.now()+Math.random().toString(36).slice(2,6)};
+  S={stages:stages,si:0,count:0,done:false,lock:false,title:title,rid:"r"+Date.now()+Math.random().toString(36).slice(2,6)};inCounter=true;
   $("home").style.display="none";$("counter").style.display="flex";
   try{if(navigator.wakeLock)navigator.wakeLock.request("screen").then(function(w){wake=w}).catch(function(){})}catch(e){}
   draw();
 }
+var inCounter=false,syncing=false;
+function nat(){
+  if(syncing||!(window.Android&&Android.setRun))return;
+  try{
+    var si=S.si,c=S.count;if(S.lock){si++;c=0}
+    Android.setRun(JSON.stringify({active:!!(inCounter&&!S.done&&set.vk),rid:S.rid,title:S.title,stages:S.stages,si:si,count:c,done:!!S.done,cfg:{vib:set.vib,snd:set.snd,tick:set.tick,warn:set.warn,end:set.end,ts:set.ts}}));
+  }catch(e){}
+}
+window.tesbihVolume=function(d){if(!inCounter)return;if(d>0)$("tap").click();else if(d<0)$("undo").click()};
+window.tesbihBack=function(){if(inCounter){$("back").click();return true}return false};
+window.nativeSync=function(j){
+  try{
+    var r=JSON.parse(j);
+    if(!r||!r.rid||!r.stages||!r.stages.length)return;
+    if(!r.active&&!r.done)return;
+    if(inCounter&&r.rid!==S.rid)return;
+    syncing=true;
+    S.stages=r.stages;S.si=r.si;S.count=r.count;S.done=!!r.done;S.lock=false;S.title=r.title;S.rid=r.rid;
+    draw();
+    syncing=false;
+    if(!inCounter)renderResume();
+    if(window.Android&&Android.getVolumeMode&&set.vk&&!Android.getVolumeMode()){set.vk=false;save("tsb_set",set);$("vk").checked=false}
+  }catch(e){syncing=false}
+};
 function loadRuns(){
   var r=load("tsb_runs",null);
   if(!Array.isArray(r)){
@@ -238,7 +263,7 @@ function persist(){
   }catch(e){}
 }
 function draw(){
-  persist();
+  persist();nat();
   var tg=S.stages[S.si];
   $("title").textContent=S.title;
   $("num").textContent=S.done?"✓":S.count;
@@ -264,7 +289,7 @@ $("tap").onclick=function(){
 $("undo").onclick=function(){if(S.done){S.done=false;S.count=S.stages[S.si]-1}else if(S.count>0)S.count--;draw()};
 $("reset").onclick=function(){S.si=0;S.count=0;S.done=false;S.lock=false;draw()};
 $("back").onclick=function(){
-  $("counter").style.display="none";$("home").style.display="block";
+  $("counter").style.display="none";$("home").style.display="block";inCounter=false;nat();
   if(wake){try{wake.release()}catch(e){}wake=null}
   renderTpls();renderResume();
 };
@@ -323,6 +348,7 @@ $("calM").onchange=function(){set.cm=Number(this.value);save("tsb_set",set)};
 $("calGo").onclick=function(){
   if(!hf2){$("calMsg").textContent="Bu tarayıcı Hicri takvimi desteklemiyor.";return}
   var r=buildICS();
+  if(window.Android&&Android.saveIcs){Android.saveIcs(r.text,"tesbih-takvim.ics");$("calMsg").textContent=r.count+" etkinlik hazırlandı. Takvim açılırsa ekle, açılmazsa İndirilenler klasöründeki dosyaya dokun.";return}
   var blob=new Blob([r.text],{type:"text/calendar;charset=utf-8"}),url=URL.createObjectURL(blob);
   var a=document.createElement("a");a.href=url;a.download="tesbih-takvim.ics";document.body.appendChild(a);a.click();a.remove();
   setTimeout(function(){URL.revokeObjectURL(url)},10000);
@@ -355,6 +381,11 @@ $("vib").checked=set.vib;$("snd").checked=set.snd;$("offV").textContent=set.off|
 if(set.tick==null)set.tick=70;if(set.tick==25)set.tick=45;if(set.warn==null)set.warn=300;if(set.end==null)set.end=300;if(set.ts==null)set.ts=0;
 [["vTick","tick"],["vWarn","warn"],["vEnd","end"],["vSnd","ts"]].forEach(function(p){var s=$(p[0]);s.value=String(set[p[1]]);s.onchange=function(){set[p[1]]=Number(s.value);save("tsb_set",set)}});
 $("tTick").onclick=function(){vib(set.tick)};$("tWarn").onclick=function(){vib(set.warn)};$("tEnd").onclick=function(){vib(endPat())};$("tSnd").onclick=function(){ensureCtx();tickSnd()};
+if(window.Android&&Android.setVolumeMode){
+  $("vkRow").style.display="flex";$("vk").checked=!!set.vk;
+  try{Android.setVolumeMode(!!set.vk)}catch(e){}
+  $("vk").onchange=function(){set.vk=this.checked;save("tsb_set",set);try{Android.setVolumeMode(set.vk)}catch(e){}nat()};
+}
 $("vib").onchange=function(){set.vib=this.checked;save("tsb_set",set);if(this.checked)vib(80)};
 $("snd").onchange=function(){set.snd=this.checked;save("tsb_set",set)};
 function off(n){set.off=(set.off||0)+n;save("tsb_set",set);$("offV").textContent=set.off;renderPlan();renderCal()}
